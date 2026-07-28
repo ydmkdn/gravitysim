@@ -364,10 +364,9 @@
                     bgmInterval = null;
                 }
 
-                // 1초 페이드 아웃 적용 로직
                 if (audioCtx) {
                     const now = audioCtx.currentTime;
-                    const fadeDuration = 1.0; // 1초 페이드 아웃 시간
+                    const fadeDuration = 1.0;
 
                     activeChordNodes.forEach(item => {
                         try {
@@ -558,7 +557,7 @@
             const zOffset = (Math.random() - 0.5) * 0.2;
             
             const anchorMass = state.bodies.length > 0 ? state.bodies[0].mass : 1.0;
-            const orbitalSpeed = Math.sqrt((G * anchorMass) / dist) * KM_S_TO_AU_Y; 
+            const orbitalSpeed = Math.sqrt((G * anchorMass) / dist); 
 
             const isFirst = state.bodies.length === 0;
             const mass = isFirst ? 1.0 : 1.0 * EARTH_TO_SOLAR; 
@@ -571,8 +570,8 @@
                 x: isFirst ? 0 : Math.cos(angle) * dist,
                 y: isFirst ? 0 : Math.sin(angle) * dist,
                 z: isFirst ? 0 : zOffset,
-                vx: isFirst ? 0 : -Math.sin(angle) * orbitalSpeed * KM_S_TO_AU_Y,
-                vy: isFirst ? 0 : Math.cos(angle) * orbitalSpeed * KM_S_TO_AU_Y,
+                vx: isFirst ? 0 : -Math.sin(angle) * orbitalSpeed,
+                vy: isFirst ? 0 : Math.cos(angle) * orbitalSpeed,
                 vz: isFirst ? 0 : (Math.random() - 0.5) * 0.5 * KM_S_TO_AU_Y,
                 mass: mass, 
                 unit: unit, 
@@ -672,7 +671,7 @@
 
             bodiesData.forEach((b, i) => {
                 const r = Math.sqrt(b.x * b.x + b.y * b.y);
-                const orbitalSpeed = Math.sqrt((G * totalMass) / r) * KM_S_TO_AU_Y * 0.94;
+                const orbitalSpeed = Math.sqrt((G * totalMass) / r) * 0.94;
 
                 const vx = r > 0 ? (-b.y / r) * orbitalSpeed + (Math.random() - 0.5) * 0.08 : 0;
                 const vy = r > 0 ? (b.x / r) * orbitalSpeed + (Math.random() - 0.5) * 0.08 : 0;
