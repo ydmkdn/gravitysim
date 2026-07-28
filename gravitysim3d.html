@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D N-Body Gravity Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & Material Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0e12;
+            color: #e2e8f0;
+            user-select: none;
+        }
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Styled Input Fields */
+        .compact-input {
+            background-color: #1a1d24;
+            border: 1px solid #2d3139;
+            color: #f8fafc;
+            text-align: center;
+            font-size: 0.75rem;
+            padding: 0.2rem;
+            border-radius: 0.375rem;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        .compact-input:focus {
+            border-color: #3b82f6;
+            background-color: #242933;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .compact-select {
+            background-color: #1a1d24;
+            border: 1px solid #2d3139;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            border-radius: 0.375rem;
+            padding: 0.2rem 0.4rem;
+            outline: none;
+            cursor: pointer;
+        }
+        .compact-select:focus {
+            border-color: #3b82f6;
+        }
+        .name-input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid transparent;
+            color: #e2e8f0;
+            font-weight: 600;
+            font-size: 0.875rem;
+            outline: none;
+            width: 120px;
+            padding: 2px 4px;
+            transition: all 0.15s ease;
+        }
+        .name-input:hover {
+            border-bottom-color: #475569;
+        }
+        .name-input:focus {
+            background-color: #1a1d24;
+            border-bottom-color: #3b82f6;
+            border-radius: 4px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col">
+
+    <!-- Navigation / Top Control Bar -->
+    <header class="bg-[#13151a] border-b border-[#22252e] px-4 py-3 flex flex-wrap items-center justify-between gap-3 z-10 flex-shrink-0">
+        <div class="flex items-center gap-2">
+            <span class="material-icons text-blue-500 text-2xl">blur_on</span>
+            <h1 class="text-md lg:text-lg font-bold tracking-tight text-white">3D N-Body Gravity Simulator</h1>
+        </div>
+
+        <!-- Central Global Controllers -->
+        <div class="flex flex-wrap items-center gap-3 lg:gap-4 bg-[#181a21] px-3 lg:px-4 py-2 rounded-xl border border-[#262a35] text-xs">
+            <!-- Simulation Playback Controls -->
+            <div class="flex items-center gap-1.5 border-r border-[#2d313e] pr-3 relative">
+                <button id="btn-play" class="flex items-center justify-center p-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition active:scale-95" title="재생">
+                    <span class="material-icons text-base">play_arrow</span>
+                </button>
+                <div class="relative">
+                    <button id="btn-reset" class="flex items-center justify-center p-2 rounded-lg bg-[#242833] hover:bg-rose-950/40 hover:text-rose-400 text-slate-300 transition active:scale-95 border border-transparent hover:border-rose-900/50" title="시뮬레이션 초기화 옵션">
+                        <span class="material-icons text-base">replay</span>
+                    </button>
+                    <!-- Reset Options Dropdown Menu -->
+                    <div id="reset-menu" class="hidden absolute top-full left-0 mt-2 w-52 bg-[#181a21] border border-[#2e3342] rounded-xl shadow-2xl z-50 py-1.5 text-xs">
+                        <button id="opt-checkpoint" class="w-full text-left px-3.5 py-2 hover:bg-[#242833] text-slate-200 flex items-center gap-2 transition">
+                            <span class="material-icons text-sm text-blue-400">history</span>
+                            마지막 재생 전으로 되돌리기
+                        </button>
+                        <button id="opt-full" class="w-full text-left px-3.5 py-2 hover:bg-rose-950/30 text-rose-400 flex items-center gap-2 transition">
+                            <span class="material-icons text-sm text-rose-500">restart_alt</span>
+                            완전히 처음으로 되돌리기
+                        </button>
+                        <div class="border-t border-[#262a35] my-1"></div>
+                        <button id="opt-cancel" class="w-full text-left px-3.5 py-2 hover:bg-[#242833] text-slate-400 flex items-center gap-2 transition">
+                            <span class="material-icons text-sm text-slate-500">close</span>
+                            초기화 하지 않기
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BGM Toggle Button -->
+            <div class="flex items-center border-r border-[#2d313e] pr-3">
+                <button id="btn-bgm" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#242833] hover:bg-[#2f3442] text-slate-300 transition active:scale-95 border border-[#2d313e]" title="커스텀 코드 진행 배경음악 켜기/끄기">
+                    <span class="material-icons text-base text-purple-400">music_note</span>
+                    <span>BGM OFF</span>
+                </button>
+            </div>
+
+            <!-- Zoom & Axis Reset System -->
+            <div class="flex items-center gap-1.5 border-r border-[#2d313e] pr-3">
+                <span class="font-semibold text-slate-400">줌:</span>
+                <button id="btn-zoom-in" class="w-7 h-7 flex items-center justify-center rounded-lg bg-[#242833] hover:bg-[#2f3442] text-white transition active:scale-95" title="확대">
+                    <span class="material-icons text-sm">add</span>
+                </button>
+                <button id="btn-zoom-out" class="w-7 h-7 flex items-center justify-center rounded-lg bg-[#242833] hover:bg-[#2f3442] text-white transition active:scale-95" title="축소">
+                    <span class="material-icons text-sm">remove</span>
+                </button>
+                <button id="btn-reset-axis" class="ml-1 px-2 py-1 flex items-center gap-1 rounded-lg bg-[#242833] hover:bg-[#2f3442] text-white text-xs transition active:scale-95" title="기본 축 정렬 방향으로 시점 리셋">
+                    <span class="material-icons text-sm text-purple-400">3d_rotation</span>
+                    <span>축 리셋</span>
+                </button>
+            </div>
+
+            <!-- Time Speed Slider (Logarithmic Scale) -->
+            <div class="flex items-center gap-2 border-r border-[#2d313e] pr-3">
+                <span class="font-semibold text-slate-400 whitespace-nowrap">시간 배속:</span>
+                <input id="slider-speed" type="range" min="0" max="100" step="1" value="37" class="w-20 lg:w-24 accent-blue-500 h-1 bg-[#2d313e] rounded-lg appearance-none cursor-pointer" title="로그 배속 조절">
+                <span id="label-speed" class="font-mono text-blue-400 min-w-[2.6rem]">1.0x</span>
+            </div>
+
+            <!-- Height Lines, Axis & Path Toggles -->
+            <div class="flex items-center gap-3">
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 select-none">
+                    <input id="chk-grid" type="checkbox" checked class="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer">
+                    <span>높이 수선</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 select-none">
+                    <input id="chk-axes" type="checkbox" checked class="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer">
+                    <span>축</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 select-none">
+                    <input id="chk-trajectory" type="checkbox" checked class="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer">
+                    <span>자취(T)</span>
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 select-none">
+                    <input id="chk-prediction" type="checkbox" checked class="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer">
+                    <span>예측궤도(O)</span>
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        
+        <!-- Left Column: Object Inspector -->
+        <aside class="w-full lg:w-[500px] h-[360px] lg:h-full bg-[#111317] border-t lg:border-t-0 lg:border-r border-[#22252e] flex flex-col overflow-hidden order-2 lg:order-1 flex-shrink-0">
+            <div class="p-3 border-b border-[#22252e] flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-xs font-semibold tracking-wide text-slate-300 uppercase">3D Object Inspector</h2>
+                <div class="flex gap-1.5">
+                    <button id="btn-solar-system" class="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium text-[11px] tracking-wider transition active:scale-95 shadow-md shadow-orange-900/20" title="태양계 기본 천체들을 로드합니다.">
+                        <span class="material-icons text-sm">public</span>
+                        SOLAR
+                    </button>
+                    <button id="btn-random-3body" class="flex items-center justify-center px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs tracking-wider transition active:scale-95 shadow-md shadow-purple-900/20" title="안정적인 3체 시뮬레이션을 생성합니다.">
+                        3-BODY
+                    </button>
+                    <button id="btn-barycenter" class="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[11px] tracking-wider transition active:scale-95 shadow-md shadow-indigo-900/20" title="질량중심을 (0,0,0)으로 맞춥니다.">
+                        <span class="material-icons text-sm">center_focus_strong</span>
+                        COM
+                    </button>
+                    <button id="btn-add" class="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-[11px] tracking-wider transition active:scale-95 shadow-md shadow-emerald-900/20">
+                        <span class="material-icons text-sm">add_circle</span>
+                        ADD
+                    </button>
+                </div>
+            </div>
+
+            <!-- Live Object Cards List Container -->
+            <div id="inspector-list" class="flex-1 overflow-y-auto p-3 space-y-2.5 no-scrollbar bg-[#0e1014]">
+                <div id="empty-state-message" class="text-center py-10 text-slate-500">
+                    <span class="material-icons text-3xl mb-1.5 opacity-40">public_off</span>
+                    <p class="text-xs">현재 배치된 천체가 없습니다.<br>'ADD', 'SOLAR' 또는 '3-BODY'를 누르세요.</p>
+                </div>
+            </div>
+
+            <!-- Footer: System status & instructions -->
+            <div class="p-2.5 bg-[#13151a] border-t border-[#22252e] text-center hidden lg:block">
+                <p class="text-[11px] text-slate-400 font-medium">마우스 드래그로 회전, 휠 스크롤로 확대/축소가 가능합니다.</p>
+            </div>
+        </aside>
+
+        <!-- Right Viewport: 3D Space Canvas -->
+        <main class="flex-1 min-h-[300px] lg:h-full relative bg-black order-1 lg:order-2">
+            <canvas id="space-canvas"></canvas>
+            
+            <div class="absolute bottom-3 right-3 bg-[#0e1014]/85 backdrop-blur border border-[#22252e] rounded-lg px-3 py-2 text-xs font-mono pointer-events-none select-none z-10 flex gap-4">
+                <div>시간: <span id="hud-time" class="text-blue-400">0.00 Y</span></div>
+                <div>천체 수: <span id="hud-count" class="text-emerald-400">0</span></div>
+                <div>시점 각도: X:<span id="hud-rot-x" class="text-purple-400">23°</span> Y:<span id="hud-rot-y" class="text-purple-400">0°</span></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Physics constants and multipliers
+        const G = 39.4784176; 
+        const KM_S_TO_AU_Y = 0.210945; 
+        const AU_Y_TO_KM_S = 1.0 / KM_S_TO_AU_Y;
+        const EARTH_TO_SOLAR = 3.003467e-6; 
+        const SOLAR_TO_EARTH = 1.0 / EARTH_TO_SOLAR;
+
+        // Web Audio API BGM Synth Engine
+        let audioCtx = null;
+        let bgmInterval = null;
+        let isBgmPlaying = false;
+        let activeChordNodes = [];
+
+        const chordDict = {
+            'C': [130.81, 196.00, 261.63, 329.63],
+            'G7': [196.00, 246.94, 293.66, 349.23],
+            'Fdim': [174.61, 207.65, 246.94, 293.66],
+            'F': [174.61, 220.00, 261.63, 349.23],
+            'Eb': [155.56, 196.00, 233.08, 311.13],
+            'Bb': [116.54, 174.61, 233.08, 293.66],
+            'Cm': [130.81, 155.56, 196.00, 261.63],
+            'Ab': [103.83, 207.65, 261.63, 311.13],
+            'Ebm': [155.56, 185.00, 233.08, 311.13],
+            'Dbdim': [138.59, 164.81, 196.00, 277.18],
+            'A7': [110.00, 220.00, 277.18, 392.00],
+            'Dm': [146.83, 174.61, 220.00, 293.66],
+            'Dbm': [138.59, 164.81, 207.65, 277.18],
+            'Caug': [130.81, 164.81, 207.65, 261.63]
+        };
+
+        const chordNames = [
+            'C', 'G7', 'C', 'Fdim', 'F', 'G7', 'C', 'C', 'Eb', 'Bb', 'Eb', 'Cm', 'Ab', 'Bb', 'Eb', 'Eb', 
+            'Fdim', 'Ab', 'Fdim', 'Ab', 'Eb', 'Bb', 'Eb', 'Eb', 'Ab', 'Fdim', 'Eb', 'Cm', 'Eb', 'Bb', 'Eb', 'Eb', 
+            'Ebm', 'Ebm', 'Bb', 'Bb', 'Dbdim', 'A7', 'Dbdim', 'A7', 'A7', 'Dm', 'Ebm', 'Dm', 'Dbm', 'C', 'Caug', 'C', 'Caug'
+        ];
+
+        const chordProgression = chordNames.map(name => ({
+            name: name,
+            freqs: chordDict[name] || chordDict['C']
+        }));
+
+        let chordIndex = 0;
+
+        function playCosmicChord(chordObj) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            
+            if (activeChordNodes.length > 0) {
+                activeChordNodes.forEach(item => {
+                    try {
+                        item.gainNode.gain.cancelScheduledValues(now);
+                        item.gainNode.gain.setValueAtTime(item.gainNode.gain.value, now);
+                        item.gainNode.gain.linearRampToValueAtTime(0.0001, now + 0.8);
+                        item.oscList.forEach(osc => {
+                            try { osc.stop(now + 0.85); } catch(e){}
+                        });
+                    } catch(e) {}
+                });
+                activeChordNodes = [];
+            }
+
+            const chordGain = audioCtx.createGain();
+            chordGain.gain.setValueAtTime(0.001, now);
+            chordGain.gain.linearRampToValueAtTime(0.12, now + 0.4);
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1200, now);
+            filter.Q.setValueAtTime(2, now);
+
+            chordGain.connect(filter);
+            filter.connect(audioCtx.destination);
+
+            const currentOscList = [];
+
+            chordObj.freqs.forEach(freq => {
+                [0, 2, -2].forEach(detuneCents => {
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now);
+                    osc.detune.setValueAtTime(detuneCents, now);
+
+                    const oscGain = audioCtx.createGain();
+                    oscGain.gain.setValueAtTime(0.25, now);
+
+                    osc.connect(oscGain);
+                    oscGain.connect(chordGain);
+
+                    osc.start(now);
+                    currentOscList.push(osc);
+                });
+            });
+
+            activeChordNodes.push({
+                gainNode: chordGain,
+                oscList: currentOscList
+            });
+        }
+
+        const btnBgm = document.getElementById('btn-bgm');
+        btnBgm.addEventListener('click', () => {
+            const bgmText = btnBgm.querySelector('span:nth-child(2)');
+            const bgmIcon = btnBgm.querySelector('.material-icons');
+
+            if (!isBgmPlaying) {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                isBgmPlaying = true;
+                bgmText.textContent = 'BGM ON';
+                btnBgm.classList.add('bg-purple-950/50', 'border-purple-800', 'text-purple-300');
+                bgmIcon.classList.add('animate-pulse');
+
+                playCosmicChord(chordProgression[chordIndex]);
+                chordIndex = (chordIndex + 1) % chordProgression.length;
+
+                bgmInterval = setInterval(() => {
+                    playCosmicChord(chordProgression[chordIndex]);
+                    chordIndex = (chordIndex + 1) % chordProgression.length;
+                }, 3000);
+            } else {
+                isBgmPlaying = false;
+                bgmText.textContent = 'BGM OFF';
+                btnBgm.classList.remove('bg-purple-950/50', 'border-purple-800', 'text-purple-300');
+                bgmIcon.classList.remove('animate-pulse');
+
+                if (bgmInterval) {
+                    clearInterval(bgmInterval);
+                    bgmInterval = null;
+                }
+
+                // 1초 페이드 아웃 적용 로직
+                if (audioCtx) {
+                    const now = audioCtx.currentTime;
+                    const fadeDuration = 1.0; // 1초 페이드 아웃 시간
+
+                    activeChordNodes.forEach(item => {
+                        try {
+                            item.gainNode.gain.cancelScheduledValues(now);
+                            item.gainNode.gain.setValueAtTime(item.gainNode.gain.value, now);
+                            item.gainNode.gain.linearRampToValueAtTime(0.0001, now + fadeDuration);
+                            item.oscList.forEach(osc => osc.stop(now + fadeDuration + 0.05));
+                        } catch(e){}
+                    });
+
+                    setTimeout(() => {
+                        activeChordNodes = [];
+                    }, fadeDuration * 1000);
+                }
+            }
+        });
+
+        const minSpeed = 0.1;
+        const maxSpeed = 50.0;
+        const minLog = Math.log(minSpeed);
+        const maxLog = Math.log(maxSpeed);
+
+        function sliderToSpeed(sliderVal) {
+            const t = sliderVal / 100;
+            return Math.exp(minLog + t * (maxLog - minLog));
+        }
+
+        let state = {
+            play: false, 
+            speed: sliderToSpeed(37), 
+            zoom: 0.25, 
+            showGrid: true,
+            showAxes: true,
+            showTrajectory: true,
+            showPrediction: true,
+            simTime: 0,
+            bodies: [] 
+        };
+
+        let cameraAngleX = 0.4; 
+        let cameraAngleY = 0.0; 
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        let checkpointState = {
+            simTime: 0,
+            bodies: []
+        };
+
+        let activeInput = {
+            bodyId: null,
+            field: null
+        };
+
+        const COLOR_PALETTE = [
+            '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', 
+            '#ec4899', '#06b6d4', '#14b8a6', '#f43f5e', '#a855f7'
+        ];
+        let colorIndex = 0;
+
+        const canvas = document.getElementById('space-canvas');
+        const ctx = canvas.getContext('2d');
+        const inspectorList = document.getElementById('inspector-list');
+        const emptyStateMessage = document.getElementById('empty-state-message');
+
+        const btnPlay = document.getElementById('btn-play');
+        const btnReset = document.getElementById('btn-reset');
+        const resetMenu = document.getElementById('reset-menu');
+        const optCheckpoint = document.getElementById('opt-checkpoint');
+        const optFull = document.getElementById('opt-full');
+        const optCancel = document.getElementById('opt-cancel');
+
+        const btnZoomIn = document.getElementById('btn-zoom-in');
+        const btnZoomOut = document.getElementById('btn-zoom-out');
+        const btnResetAxis = document.getElementById('btn-reset-axis');
+        const sliderSpeed = document.getElementById('slider-speed');
+        const labelSpeed = document.getElementById('label-speed');
+        const chkGrid = document.getElementById('chk-grid');
+        const chkAxes = document.getElementById('chk-axes');
+        const chkTrajectory = document.getElementById('chk-trajectory');
+        const chkPrediction = document.getElementById('chk-prediction');
+        const btnAdd = document.getElementById('btn-add');
+        const btnBarycenter = document.getElementById('btn-barycenter');
+        const btnSolarSystem = document.getElementById('btn-solar-system');
+        const btnRandom3Body = document.getElementById('btn-random-3body');
+
+        const hudTime = document.getElementById('hud-time');
+        const hudCount = document.getElementById('hud-count');
+        const hudRotX = document.getElementById('hud-rot-x');
+        const hudRotY = document.getElementById('hud-rot-y');
+
+        // Mouse Drag handling for 3D Camera Rotation
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            cameraAngleY -= dx * 0.005; 
+            cameraAngleX -= dy * 0.005; 
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Touch Drag handling for Mobile 3D Camera Rotation
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging || e.touches.length !== 1) return;
+            const dx = e.touches[0].clientX - lastMouseX;
+            const dy = e.touches[0].clientY - lastMouseY;
+            lastMouseX = e.touches[0].clientX;
+            lastMouseY = e.touches[0].clientY;
+
+            cameraAngleY -= dx * 0.005; 
+            cameraAngleX -= dy * 0.005; 
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // Mouse Wheel Zoom Support
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                state.zoom = Math.min(state.zoom * 1.15, 20.0);
+            } else {
+                state.zoom = Math.max(state.zoom / 1.15, 0.01);
+            }
+        }, { passive: false });
+
+        function saveCheckpoint() {
+            checkpointState = {
+                simTime: state.simTime,
+                bodies: JSON.parse(JSON.stringify(state.bodies))
+            };
+        }
+
+        function getCenterOfMass() {
+            if (state.bodies.length === 0) return { x: 0, y: 0, z: 0 };
+            let totalMass = 0;
+            let cx = 0, cy = 0, cz = 0;
+            state.bodies.forEach(b => {
+                totalMass += b.mass;
+                cx += b.mass * b.x;
+                cy += b.mass * b.y;
+                cz += b.mass * b.z;
+            });
+            if (totalMass === 0) return { x: 0, y: 0, z: 0 };
+            return { x: cx / totalMass, y: cy / totalMass, z: cz / totalMass };
+        }
+
+        function getInspectorViewValues(body) {
+            return {
+                x: body.x,
+                y: body.y,
+                z: body.z,
+                vx: body.vx * AU_Y_TO_KM_S,
+                vy: body.vy * AU_Y_TO_KM_S,
+                vz: body.vz * AU_Y_TO_KM_S,
+                mass: body.unit === 'Solar' ? body.mass : body.mass * SOLAR_TO_EARTH
+            };
+        }
+
+        function spawnObject() {
+            colorIndex++;
+            const id = Date.now();
+            
+            const dist = 0.8 + (Math.random() * 1.2);
+            const angle = Math.random() * Math.PI * 2;
+            const zOffset = (Math.random() - 0.5) * 0.2;
+            
+            const anchorMass = state.bodies.length > 0 ? state.bodies[0].mass : 1.0;
+            const orbitalSpeed = Math.sqrt((G * anchorMass) / dist) * KM_S_TO_AU_Y; 
+
+            const isFirst = state.bodies.length === 0;
+            const mass = isFirst ? 1.0 : 1.0 * EARTH_TO_SOLAR; 
+            const unit = isFirst ? 'Solar' : 'Earth';
+            const name = isFirst ? "중심성" : `천체 ${state.bodies.length + 1}`;
+
+            const defaultObject = {
+                id: id,
+                name: name,
+                x: isFirst ? 0 : Math.cos(angle) * dist,
+                y: isFirst ? 0 : Math.sin(angle) * dist,
+                z: isFirst ? 0 : zOffset,
+                vx: isFirst ? 0 : -Math.sin(angle) * orbitalSpeed * KM_S_TO_AU_Y,
+                vy: isFirst ? 0 : Math.cos(angle) * orbitalSpeed * KM_S_TO_AU_Y,
+                vz: isFirst ? 0 : (Math.random() - 0.5) * 0.5 * KM_S_TO_AU_Y,
+                mass: mass, 
+                unit: unit, 
+                color: COLOR_PALETTE[colorIndex % COLOR_PALETTE.length],
+                trail: []
+            };
+
+            state.bodies.push(defaultObject);
+            saveCheckpoint();
+            renderInspectorList();
+        }
+
+        function loadSolarSystem() {
+            state.bodies = [];
+            state.simTime = 0;
+
+            const planets = [
+                { name: "Sun", unit: "Solar", massVal: 1.0, a: 0, e: 0, i: 0, color: "#facc15" },
+                { name: "Mercury", unit: "Earth", massVal: 0.0553, a: 0.38710, e: 0.20563, i: 7.00, color: "#9ca3af" },
+                { name: "Venus", unit: "Earth", massVal: 0.815, a: 0.72333, e: 0.00677, i: 3.39, color: "#fcd34d" },
+                { name: "Earth", unit: "Earth", massVal: 1.0, a: 1.00000, e: 0.01671, i: 0.00, color: "#3b82f6" },
+                { name: "Mars", unit: "Earth", massVal: 0.107, a: 1.52366, e: 0.09341, i: 1.85, color: "#ef4444" },
+                { name: "Jupiter", unit: "Earth", massVal: 317.83, a: 5.20336, e: 0.04839, i: 1.30, color: "#fdba74" },
+                { name: "Saturn", unit: "Earth", massVal: 95.16, a: 9.58201, e: 0.05551, i: 2.49, color: "#fef08a" },
+                { name: "Uranus", unit: "Earth", massVal: 14.536, a: 19.2184, e: 0.04630, i: 0.77, color: "#7dd3fc" },
+                { name: "Neptune", unit: "Earth", massVal: 17.147, a: 30.1104, e: 0.00946, i: 1.77, color: "#2563eb" }
+            ];
+
+            planets.forEach((p, index) => {
+                if (p.a === 0) {
+                    state.bodies.push({
+                        id: Date.now() + index,
+                        name: p.name,
+                        x: 0, y: 0, z: 0,
+                        vx: 0, vy: 0, vz: 0,
+                        mass: p.massVal,
+                        unit: p.unit,
+                        color: p.color,
+                        trail: []
+                    });
+                } else {
+                    const r_peri = p.a * (1 - p.e);
+                    const v_peri = Math.sqrt(G * (1 + p.e) / (p.a * (1 - p.e)));
+                    const incRad = (p.i || 0) * Math.PI / 180;
+
+                    state.bodies.push({
+                        id: Date.now() + index,
+                        name: p.name,
+                        x: r_peri,
+                        y: 0,
+                        z: 0,
+                        vx: 0,
+                        vy: v_peri * Math.cos(incRad),
+                        vz: v_peri * Math.sin(incRad),
+                        mass: p.unit === 'Solar' ? p.massVal : p.massVal * EARTH_TO_SOLAR,
+                        unit: p.unit,
+                        color: p.color,
+                        trail: []
+                    });
+                }
+            });
+
+            state.zoom = 0.25; 
+            setPlayState(false); 
+            saveCheckpoint();
+            renderInspectorList();
+        }
+        btnSolarSystem.addEventListener('click', loadSolarSystem);
+
+        function loadRandom3Body() {
+            state.bodies = [];
+            state.simTime = 0;
+
+            const names = ["별 A", "별 B", "별 C"];
+            let totalMass = 0;
+            let bodiesData = [];
+
+            const baseAngles = [0, 2.1, 4.3]; 
+            const radii = [7.2, 8.5, 9.8];     
+
+            for (let i = 0; i < 3; i++) {
+                const r = radii[i] + (Math.random() - 0.5) * 0.6;
+                const angle = baseAngles[i] + (Math.random() - 0.5) * 0.2; 
+                const z = (Math.random() - 0.5) * 0.3;
+                const massVal = 1.0 + Math.random() * 0.8; 
+                totalMass += massVal;
+
+                bodiesData.push({
+                    name: names[i],
+                    x: r * Math.cos(angle),
+                    y: r * Math.sin(angle),
+                    z: z,
+                    mass: massVal,
+                    color: COLOR_PALETTE[i % COLOR_PALETTE.length]
+                });
+            }
+
+            bodiesData.forEach((b, i) => {
+                const r = Math.sqrt(b.x * b.x + b.y * b.y);
+                const orbitalSpeed = Math.sqrt((G * totalMass) / r) * KM_S_TO_AU_Y * 0.94;
+
+                const vx = r > 0 ? (-b.y / r) * orbitalSpeed + (Math.random() - 0.5) * 0.08 : 0;
+                const vy = r > 0 ? (b.x / r) * orbitalSpeed + (Math.random() - 0.5) * 0.08 : 0;
+                const vz = (Math.random() - 0.5) * 0.04;
+
+                state.bodies.push({
+                    id: Date.now() + i,
+                    name: b.name,
+                    x: b.x,
+                    y: b.y,
+                    z: b.z,
+                    vx: vx,
+                    vy: vy,
+                    vz: vz,
+                    mass: b.mass,
+                    unit: 'Solar',
+                    color: b.color,
+                    trail: []
+                });
+            });
+
+            state.zoom = 0.25; 
+            setPlayState(false);
+            saveCheckpoint();
+            renderInspectorList();
+        }
+        btnRandom3Body.addEventListener('click', loadRandom3Body);
+
+        function computeAccelerations(bodiesList) {
+            const accs = bodiesList.map(() => ({ x: 0, y: 0, z: 0 }));
+            const softening = 0.002; 
+            
+            for (let i = 0; i < bodiesList.length; i++) {
+                for (let j = i + 1; j < bodiesList.length; j++) {
+                    const b1 = bodiesList[i];
+                    const b2 = bodiesList[j];
+                    
+                    const dx = b2.x - b1.x;
+                    const dy = b2.y - b1.y;
+                    const dz = b2.z - b1.z;
+                    const distSq = dx * dx + dy * dy + dz * dz + (softening * softening);
+                    const dist = Math.sqrt(distSq);
+                    
+                    const m1 = b1.mass;
+                    const m2 = b2.mass;
+                    
+                    const force = (G * m1 * m2) / distSq;
+                    const ax = (force * dx) / dist;
+                    const ay = (force * dy) / dist;
+                    const az = (force * dz) / dist;
+                    
+                    accs[i].x += ax / m1;
+                    accs[i].y += ay / m1;
+                    accs[i].z += az / m1;
+                    accs[j].x -= ax / m2;
+                    accs[j].y -= ay / m2;
+                    accs[j].z -= az / m2;
+                }
+            }
+            return accs;
+        }
+
+        function verletSubStep(bodiesList, dt) {
+            const a1 = computeAccelerations(bodiesList);
+            bodiesList.forEach((b, i) => {
+                b.x += b.vx * dt + 0.5 * a1[i].x * dt * dt;
+                b.y += b.vy * dt + 0.5 * a1[i].y * dt * dt;
+                b.z += b.vz * dt + 0.5 * a1[i].z * dt * dt;
+            });
+            const a2 = computeAccelerations(bodiesList);
+            bodiesList.forEach((b, i) => {
+                b.vx += 0.5 * (a1[i].x + a2[i].x) * dt;
+                b.vy += 0.5 * (a1[i].y + a2[i].y) * dt;
+                b.vz += 0.5 * (a1[i].z + a2[i].z) * dt;
+            });
+        }
+
+        function stepPhysics(simDt) {
+            if (state.bodies.length === 0) return;
+
+            const w1 = 1.3512071919596578;
+            const w0 = -1.7024143839193155;
+
+            const dt1 = w1 * simDt;
+            const dt2 = w0 * simDt;
+            const dt3 = w1 * simDt;
+
+            verletSubStep(state.bodies, dt1);
+            verletSubStep(state.bodies, dt2);
+            verletSubStep(state.bodies, dt3);
+
+            state.bodies.forEach(b => {
+                if (state.showTrajectory) {
+                    b.trail.push({ x: b.x, y: b.y, z: b.z });
+                    if (b.trail.length > 600) {
+                        b.trail.shift();
+                    }
+                } else {
+                    b.trail = [];
+                }
+            });
+
+            state.simTime += simDt;
+        }
+
+        function getOrbitPredictions() {
+            if (state.bodies.length < 1) return [];
+            
+            let virtualBodies = state.bodies.map(b => ({
+                x: b.x,
+                y: b.y,
+                z: b.z,
+                vx: b.vx,
+                vy: b.vy,
+                vz: b.vz,
+                mass: b.mass,
+                unit: b.unit
+            }));
+
+            const steps = 400;
+            const dt = 0.005; 
+            const paths = virtualBodies.map(() => []);
+
+            for (let step = 0; step < steps; step++) {
+                const accs = computeAccelerations(virtualBodies);
+                virtualBodies.forEach((b, i) => {
+                    b.vx += accs[i].x * dt;
+                    b.vy += accs[i].y * dt;
+                    b.vz += accs[i].z * dt;
+                    b.x += b.vx * dt;
+                    b.y += b.vy * dt;
+                    b.z += b.vz * dt;
+                    
+                    if (step % 2 === 0) {
+                        paths[i].push({ x: b.x, y: b.y, z: b.z });
+                    }
+                });
+            }
+            return paths;
+        }
+
+        function renderInspectorList() {
+            if (state.bodies.length === 0) {
+                emptyStateMessage.classList.remove('hidden');
+                const cardNodes = Array.from(inspectorList.children).filter(node => node !== emptyStateMessage);
+                cardNodes.forEach(node => node.remove());
+                return;
+            }
+            emptyStateMessage.classList.add('hidden');
+
+            state.bodies.forEach((body) => {
+                let card = document.getElementById(`card-${body.id}`);
+                const views = getInspectorViewValues(body);
+
+                if (!card) {
+                    card = document.createElement('div');
+                    card.id = `card-${body.id}`;
+                    card.className = "bg-[#181a21] border border-[#22252e] rounded-xl p-3 space-y-2 relative transition hover:border-[#2f3342] text-xs";
+                    
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full shadow" style="background-color: ${body.color}"></span>
+                                <input type="text" class="input-name name-input" value="${body.name}" spellcheck="false" title="이름 수정">
+                            </div>
+                            <button class="btn-delete flex items-center justify-center text-rose-500 hover:text-rose-400 p-1 rounded hover:bg-[#222631] transition" title="삭제">
+                                <span class="material-icons text-base">delete</span>
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <div class="flex flex-col bg-[#111317] p-1.5 rounded-lg border border-[#1e222a]">
+                                <span class="text-[10px] text-slate-500 font-bold mb-0.5">X (AU)</span>
+                                <input type="number" step="any" class="input-x compact-input text-right" value="${views.x.toFixed(3)}">
+                            </div>
+                            <div class="flex flex-col bg-[#111317] p-1.5 rounded-lg border border-[#1e222a]">
+                                <span class="text-[10px] text-slate-500 font-bold mb-0.5">Y (AU)</span>
+                                <input type="number" step="any" class="input-y compact-input text-right" value="${views.y.toFixed(3)}">
+                            </div>
+                            <div class="flex flex-col bg-[#111317] p-1.5 rounded-lg border border-[#1e222a]">
+                                <span class="text-[10px] text-slate-500 font-bold mb-0.5">Z (AU)</span>
+                                <input type="number" step="any" class="input-z compact-input text-right" value="${views.z.toFixed(3)}">
+                            </div>
+                            <div class="flex flex-col bg-[#111317] p-1.5 rounded-lg border border-[#1e222a]">
+                                <span class="text-[10px] text-slate-500 font-bold mb-0.5">Vx (km/s)</span>
+                                <input type="number" step="any" class="input-vx compact-input text-right" value="${views.vx.toFixed(1)}">
+                            </div>
+                            <div class="flex flex-col bg-[#111317] p-1.5 rounded-lg border border-[#1e222a]">
+                                <span class="text-[10px] text-slate-500 font-bold mb-0.5">Vy (km/s)</span>
+                                <input type="number" step="any" class="input-vy compact-input text-right" value="${views.vy.toFixed(1)}">
+                            </div>
+                            <div class="flex flex-col bg-[#111317] p-1.5 rounded-lg border border-[#1e222a]">
+                                <span class="text-[10px] text-slate-500 font-bold mb-0.5">Vz (km/s)</span>
+                                <input type="number" step="any" class="input-vz compact-input text-right" value="${views.vz.toFixed(1)}">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 bg-[#111317] px-2 py-1.5 rounded-lg border border-[#1e222a]">
+                            <span class="text-slate-500 font-bold whitespace-nowrap">질량:</span>
+                            <input type="number" step="any" min="0" class="input-mass compact-input flex-1 text-right" value="${views.mass.toFixed(4)}">
+                            <select class="select-unit compact-select">
+                                <option value="Earth" ${body.unit === 'Earth' ? 'selected' : ''}>지구 (M⊕)</option>
+                                <option value="Solar" ${body.unit === 'Solar' ? 'selected' : ''}>태양 (M☉)</option>
+                            </select>
+                        </div>
+                    `;
+
+                    inspectorList.appendChild(card);
+
+                    const inputName = card.querySelector('.input-name');
+                    const inputX = card.querySelector('.input-x');
+                    const inputY = card.querySelector('.input-y');
+                    const inputZ = card.querySelector('.input-z');
+                    const inputVx = card.querySelector('.input-vx');
+                    const inputVy = card.querySelector('.input-vy');
+                    const inputVz = card.querySelector('.input-vz');
+                    const inputMass = card.querySelector('.input-mass');
+                    const selectUnit = card.querySelector('.select-unit');
+                    const btnDelete = card.querySelector('.btn-delete');
+
+                    const regFocus = (field) => {
+                        return () => { activeInput = { bodyId: body.id, field: field }; };
+                    };
+                    const regBlur = () => {
+                        return () => { activeInput = { bodyId: null, field: null }; };
+                    };
+
+                    inputName.addEventListener('focus', regFocus('name'));
+                    inputName.addEventListener('blur', regBlur());
+                    ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mass'].forEach(f => {
+                        card.querySelector(`.input-${f}`).addEventListener('focus', regFocus(f));
+                        card.querySelector(`.input-${f}`).addEventListener('blur', regBlur());
+                    });
+
+                    const updateProp = (field, element) => {
+                        const target = state.bodies.find(b => b.id === body.id);
+                        if (!target) return;
+                        
+                        if (field === 'name') {
+                            target.name = element.value;
+                            saveCheckpoint();
+                            return;
+                        }
+
+                        const val = parseFloat(element.value);
+                        if (isNaN(val)) return;
+
+                        if (field === 'x') target.x = val;
+                        if (field === 'y') target.y = val;
+                        if (field === 'z') target.z = val;
+                        if (field === 'vx') target.vx = val * KM_S_TO_AU_Y;
+                        if (field === 'vy') target.vy = val * KM_S_TO_AU_Y;
+                        if (field === 'vz') target.vz = val * KM_S_TO_AU_Y;
+                        if (field === 'mass') {
+                            target.mass = target.unit === 'Solar' ? val : val * EARTH_TO_SOLAR;
+                        }
+                        saveCheckpoint();
+                    };
+
+                    inputName.addEventListener('input', () => updateProp('name', inputName));
+                    ['x', 'y', 'z', 'vx', 'vy', 'vz', 'mass'].forEach(f => {
+                        card.querySelector(`.input-${f}`).addEventListener('input', (e) => updateProp(f, e.target));
+                    });
+
+                    selectUnit.addEventListener('change', (e) => {
+                        const target = state.bodies.find(b => b.id === body.id);
+                        if (!target) return;
+                        
+                        const newUnit = e.target.value;
+                        target.unit = newUnit;
+                        const displayMass = newUnit === 'Solar' ? target.mass : target.mass * SOLAR_TO_EARTH;
+                        inputMass.value = displayMass.toFixed(4);
+                        saveCheckpoint();
+                    });
+
+                    btnDelete.addEventListener('click', () => {
+                        state.bodies = state.bodies.filter(b => b.id !== body.id);
+                        card.remove();
+                        saveCheckpoint();
+                        renderInspectorList();
+                    });
+                } else {
+                    const inputName = card.querySelector('.input-name');
+                    const isFocused = (field) => activeInput.bodyId === body.id && activeInput.field === field;
+
+                    if (!isFocused('name')) inputName.value = body.name;
+                    if (!isFocused('x')) card.querySelector('.input-x').value = views.x.toFixed(3);
+                    if (!isFocused('y')) card.querySelector('.input-y').value = views.y.toFixed(3);
+                    if (!isFocused('z')) card.querySelector('.input-z').value = views.z.toFixed(3);
+                    if (!isFocused('vx')) card.querySelector('.input-vx').value = views.vx.toFixed(1);
+                    if (!isFocused('vy')) card.querySelector('.input-vy').value = views.vy.toFixed(1);
+                    if (!isFocused('vz')) card.querySelector('.input-vz').value = views.vz.toFixed(1);
+                    if (!isFocused('mass')) card.querySelector('.input-mass').value = views.mass.toFixed(4);
+                    
+                    const selectUnit = card.querySelector('.select-unit');
+                    if (document.activeElement !== selectUnit) selectUnit.value = body.unit;
+                }
+            });
+
+            const cardNodes = Array.from(inspectorList.children).filter(node => node !== emptyStateMessage);
+            cardNodes.forEach(cardNode => {
+                const idStr = cardNode.id.replace('card-', '');
+                const idNum = parseInt(idStr, 10);
+                if (!state.bodies.some(b => b.id === idNum)) {
+                    cardNode.remove();
+                }
+            });
+        }
+
+        const setPlayState = (playing) => {
+            if (playing && !state.play) {
+                saveCheckpoint();
+            }
+            state.play = playing;
+            const icon = btnPlay.querySelector('.material-icons');
+            if (playing) {
+                btnPlay.classList.add('bg-amber-600', 'hover:bg-amber-500');
+                btnPlay.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                icon.textContent = 'pause';
+                btnPlay.title = '일시정지';
+            } else {
+                btnPlay.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                btnPlay.classList.remove('bg-amber-600', 'hover:bg-amber-500');
+                icon.textContent = 'play_arrow';
+                btnPlay.title = '재생';
+            }
+        };
+
+        btnPlay.addEventListener('click', () => setPlayState(!state.play));
+
+        btnReset.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetMenu.classList.toggle('hidden');
+        });
+
+        window.addEventListener('click', () => {
+            resetMenu.classList.add('hidden');
+        });
+
+        optCheckpoint.addEventListener('click', () => {
+            setPlayState(false);
+            state.simTime = checkpointState.simTime;
+            state.bodies = JSON.parse(JSON.stringify(checkpointState.bodies));
+            renderInspectorList();
+            resetMenu.classList.add('hidden');
+        });
+
+        optFull.addEventListener('click', () => {
+            setPlayState(false);
+            state.bodies = [];
+            state.simTime = 0;
+            saveCheckpoint();
+            renderInspectorList();
+            resetMenu.classList.add('hidden');
+        });
+
+        optCancel.addEventListener('click', () => {
+            resetMenu.classList.add('hidden');
+        });
+
+        setPlayState(false);
+        saveCheckpoint();
+
+        btnZoomIn.addEventListener('click', () => {
+            state.zoom = Math.min(state.zoom * 1.2, 20.0);
+        });
+        btnZoomOut.addEventListener('click', () => {
+            state.zoom = Math.max(state.zoom / 1.2, 0.01);
+        });
+        
+        btnResetAxis.addEventListener('click', () => {
+            cameraAngleX = 0.4;  
+            cameraAngleY = 0.0;  
+        });
+
+        sliderSpeed.addEventListener('input', (e) => {
+            const sliderVal = parseFloat(e.target.value);
+            state.speed = sliderToSpeed(sliderVal);
+            if (state.speed < 10) {
+                labelSpeed.textContent = `${state.speed.toFixed(1)}x`;
+            } else {
+                labelSpeed.textContent = `${state.speed.toFixed(0)}x`;
+            }
+        });
+
+        chkGrid.addEventListener('change', (e) => {
+            state.showGrid = e.target.checked;
+        });
+        chkAxes.addEventListener('change', (e) => {
+            state.showAxes = e.target.checked;
+        });
+        chkTrajectory.addEventListener('change', (e) => {
+            state.showTrajectory = e.target.checked;
+        });
+        chkPrediction.addEventListener('change', (e) => {
+            state.showPrediction = e.target.checked;
+        });
+
+        function setBarycenterToOrigin() {
+            if (state.bodies.length === 0) return;
+
+            let totalMass = 0;
+            let sumX = 0, sumY = 0, sumZ = 0, sumVx = 0, sumVy = 0, sumVz = 0;
+
+            state.bodies.forEach(b => {
+                const m = b.mass;
+                totalMass += m;
+                sumX += m * b.x;
+                sumY += m * b.y;
+                sumZ += m * b.z;
+                sumVx += m * b.vx;
+                sumVy += m * b.vy;
+                sumVz += m * b.vz;
+            });
+
+            if (totalMass <= 0) return;
+
+            const cx_com = sumX / totalMass;
+            const cy_com = sumY / totalMass;
+            const cz_com = sumZ / totalMass;
+            const cvx_com = sumVx / totalMass;
+            const cvy_com = sumVy / totalMass;
+            const cvz_com = sumVz / totalMass;
+
+            state.bodies.forEach(b => {
+                b.x -= cx_com;
+                b.y -= cy_com;
+                b.z -= cz_com;
+                b.vx -= cvx_com;
+                b.vy -= cvy_com;
+                b.vz -= cvz_com;
+                
+                if (b.trail && b.trail.length > 0) {
+                    b.trail.forEach(pt => {
+                        pt.x -= cx_com;
+                        pt.y -= cy_com;
+                        pt.z -= cz_com;
+                    });
+                }
+            });
+            saveCheckpoint();
+            renderInspectorList();
+        }
+
+        btnAdd.addEventListener('click', spawnObject);
+        btnBarycenter.addEventListener('click', setBarycenterToOrigin);
+
+        function resizeCanvas() {
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function project3D(x, y, z, com, scale, width, height) {
+            const rx = x - com.x;
+            const ry = y - com.y;
+            const rz = -(z - com.z); 
+
+            const cosY = Math.cos(cameraAngleY);
+            const sinY = Math.sin(cameraAngleY);
+            const x1 = rx * cosY + rz * sinY;
+            const y1 = ry;
+            const z1 = -rx * sinY + rz * cosY;
+
+            const cosX = Math.cos(cameraAngleX);
+            const sinX = Math.sin(cameraAngleX);
+            const x2 = x1;
+            const y2 = y1 * cosX - z1 * sinX;
+            const z2 = y1 * sinX + z1 * cosX;
+
+            const cx = width / 2;
+            const cy = height / 2;
+
+            const cameraDist = 40; 
+            const perspective = cameraDist / (cameraDist + z2);
+
+            return {
+                x: cx + x2 * scale * perspective,
+                y: cy - y2 * scale * perspective,
+                depth: z2,
+                scaleFactor: perspective
+            };
+        }
+
+        let lastTime = 0;
+
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000.0;
+            lastTime = timestamp;
+
+            if (state.play) {
+                const targetSimDt = Math.min(dt, 0.1) * 0.05 * state.speed;
+                const maxSubDt = 0.0008; 
+                let remainingTime = targetSimDt;
+
+                while (remainingTime > 0) {
+                    const subDt = Math.min(remainingTime, maxSubDt);
+                    stepPhysics(subDt);
+                    remainingTime -= subDt;
+                }
+            }
+
+            renderInspectorList();
+
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const scale = (Math.min(canvas.width, canvas.height) / 15) * state.zoom;
+            const com = getCenterOfMass();
+
+            if (state.showAxes) {
+                const axisMin = -50;
+                const axisMax = 50;
+
+                ctx.lineWidth = 1.2;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+
+                const pX1 = project3D(axisMin, 0, 0, com, scale, canvas.width, canvas.height);
+                const pX2 = project3D(axisMax, 0, 0, com, scale, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.moveTo(pX1.x, pX1.y);
+                ctx.lineTo(pX2.x, pX2.y);
+                ctx.stroke();
+
+                const pY1 = project3D(0, axisMin, 0, com, scale, canvas.width, canvas.height);
+                const pY2 = project3D(0, axisMax, 0, com, scale, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.moveTo(pY1.x, pY1.y);
+                ctx.lineTo(pY2.x, pY2.y);
+                ctx.stroke();
+
+                const pZ1 = project3D(0, 0, axisMin, com, scale, canvas.width, canvas.height);
+                const pZ2 = project3D(0, 0, axisMax, com, scale, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.moveTo(pZ1.x, pZ1.y);
+                ctx.lineTo(pZ2.x, pZ2.y);
+                ctx.stroke();
+
+                ctx.font = '10px Inter, sans-serif';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+
+                for (let i = axisMin; i <= axisMax; i += 5) {
+                    if (i === 0) continue;
+
+                    const pXt = project3D(i, 0, 0, com, scale, canvas.width, canvas.height);
+                    if (pXt.x >= 0 && pXt.x <= canvas.width && pXt.y >= 0 && pXt.y <= canvas.height) {
+                        ctx.fillText(`${i}`, pXt.x + 3, pXt.y - 3);
+                    }
+
+                    const pYt = project3D(0, i, 0, com, scale, canvas.width, canvas.height);
+                    if (pYt.x >= 0 && pYt.x <= canvas.width && pYt.y >= 0 && pYt.y <= canvas.height) {
+                        ctx.fillText(`${i}`, pYt.x + 3, pYt.y - 3);
+                    }
+
+                    const pZt = project3D(0, 0, i, com, scale, canvas.width, canvas.height);
+                    if (pZt.x >= 0 && pZt.x <= canvas.width && pZt.y >= 0 && pZt.y <= canvas.height) {
+                        ctx.fillText(`${i}`, pZt.x + 3, pZt.y - 3);
+                    }
+                }
+            }
+
+            if (state.showGrid && state.bodies.length > 0) {
+                ctx.lineWidth = 1.0;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                state.bodies.forEach(b => {
+                    const pBody = project3D(b.x, b.y, b.z, com, scale, canvas.width, canvas.height);
+                    const pGrid = project3D(b.x, b.y, com.z, com, scale, canvas.width, canvas.height);
+
+                    ctx.beginPath();
+                    ctx.moveTo(pBody.x, pBody.y);
+                    ctx.lineTo(pGrid.x, pGrid.y);
+                    ctx.stroke();
+                });
+            }
+
+            if (state.showTrajectory) {
+                state.bodies.forEach(b => {
+                    if (b.trail.length < 2) return;
+                    const len = b.trail.length;
+                    ctx.lineWidth = 1.8;
+                    ctx.strokeStyle = b.color;
+                    
+                    for (let i = 0; i < len - 1; i++) {
+                        const alpha = (i / len) * 0.85; 
+                        ctx.globalAlpha = alpha;
+                        
+                        const p1 = project3D(b.trail[i].x, b.trail[i].y, b.trail[i].z, com, scale, canvas.width, canvas.height);
+                        const p2 = project3D(b.trail[i+1].x, b.trail[i+1].y, b.trail[i+1].z, com, scale, canvas.width, canvas.height);
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                    ctx.globalAlpha = 1.0; 
+                });
+            }
+
+            if (state.showPrediction && state.bodies.length > 0) {
+                const predictions = getOrbitPredictions();
+                predictions.forEach((path, i) => {
+                    if (path.length < 2) return;
+                    ctx.beginPath();
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = state.bodies[i].color + 'aa';
+                    ctx.setLineDash([4, 4]);
+
+                    const p0 = project3D(path[0].x, path[0].y, path[0].z, com, scale, canvas.width, canvas.height);
+                    ctx.moveTo(p0.x, p0.y);
+
+                    for (let step = 1; step < path.length; step++) {
+                        const pt = project3D(path[step].x, path[step].y, path[step].z, com, scale, canvas.width, canvas.height);
+                        ctx.lineTo(pt.x, pt.y);
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+            }
+
+            let renderList = state.bodies.map(b => {
+                const proj = project3D(b.x, b.y, b.z, com, scale, canvas.width, canvas.height);
+                return { body: b, proj: proj };
+            });
+            renderList.sort((a, b) => b.proj.depth - a.proj.depth);
+
+            renderList.forEach(item => {
+                const b = item.body;
+                const proj = item.proj;
+
+                let relativeMass = b.mass;
+                let size = Math.max(3, Math.log10(relativeMass * 1e6 + 1) * 2.0 * proj.scaleFactor);
+                if (size > 18) size = 18;
+
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, size, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '10px font-semibold';
+                ctx.fillText(b.name, proj.x + size + 5, proj.y + 3);
+            });
+
+            hudTime.textContent = `${state.simTime.toFixed(2)} Y`;
+            hudCount.textContent = state.bodies.length;
+            hudRotX.textContent = `${Math.round(cameraAngleX * (180 / Math.PI))}°`;
+            hudRotY.textContent = `${Math.round(cameraAngleY * (180 / Math.PI))}°`;
+
+            requestAnimationFrame(loop);
+        }
+
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
