@@ -356,7 +356,7 @@
             } else {
                 isBgmPlaying = false;
                 bgmText.textContent = 'BGM OFF';
-                btnBgm.classList.remove('bg-purple-950/50', 'border-purple-800', 'text-purple-300');
+                btnBgm.classList.remove('bg-[#purple-950/50]', 'border-purple-800', 'text-purple-300');
                 bgmIcon.classList.remove('animate-pulse');
 
                 if (bgmInterval) {
@@ -576,7 +576,8 @@
                 mass: mass, 
                 unit: unit, 
                 color: COLOR_PALETTE[colorIndex % COLOR_PALETTE.length],
-                trail: []
+                trail: [],
+                maxTrail: 600
             };
 
             state.bodies.push(defaultObject);
@@ -610,7 +611,8 @@
                         mass: p.massVal,
                         unit: p.unit,
                         color: p.color,
-                        trail: []
+                        trail: [],
+                        maxTrail: 600
                     });
                 } else {
                     const r_peri = p.a * (1 - p.e);
@@ -629,7 +631,8 @@
                         mass: p.unit === 'Solar' ? p.massVal : p.massVal * EARTH_TO_SOLAR,
                         unit: p.unit,
                         color: p.color,
-                        trail: []
+                        trail: [],
+                        maxTrail: 600
                     });
                 }
             });
@@ -649,14 +652,19 @@
             let totalMass = 0;
             let bodiesData = [];
 
-            const baseAngles = [0, 2.1, 4.3]; 
-            const radii = [7.2, 8.5, 9.8];     
+            // 거리를 5.0 AU 이상으로 설정 (5.0 ~ 8.0 AU 범위)
+            const radii = [
+                5.0 + Math.random() * 1.0, 
+                6.2 + Math.random() * 1.0, 
+                7.4 + Math.random() * 1.0
+            ];     
+            const baseAngles = [0, 2.094, 4.188]; 
 
             for (let i = 0; i < 3; i++) {
-                const r = radii[i] + (Math.random() - 0.5) * 0.6;
-                const angle = baseAngles[i] + (Math.random() - 0.5) * 0.2; 
-                const z = (Math.random() - 0.5) * 0.3;
-                const massVal = 1.0 + Math.random() * 0.8; 
+                const r = radii[i];
+                const angle = baseAngles[i] + (Math.random() - 0.5) * 0.4; 
+                const z = (Math.random() - 0.5) * 1.5; 
+                const massVal = 0.8 + Math.random() * 0.4; 
                 totalMass += massVal;
 
                 bodiesData.push({
@@ -670,12 +678,15 @@
             }
 
             bodiesData.forEach((b, i) => {
-                const r = Math.sqrt(b.x * b.x + b.y * b.y);
-                const orbitalSpeed = Math.sqrt((G * totalMass) / r) * 0.94;
+                const r = Math.sqrt(b.x * b.x + b.y * b.y + b.z * b.z);
+                const vBase = Math.sqrt((G * totalMass) / r) * (0.4 + Math.random() * 0.2);
 
-                const vx = r > 0 ? (-b.y / r) * orbitalSpeed + (Math.random() - 0.5) * 0.08 : 0;
-                const vy = r > 0 ? (b.x / r) * orbitalSpeed + (Math.random() - 0.5) * 0.08 : 0;
-                const vz = (Math.random() - 0.5) * 0.04;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos((Math.random() * 2) - 1);
+
+                const vx = vBase * Math.sin(phi) * Math.cos(theta);
+                const vy = vBase * Math.sin(phi) * Math.sin(theta);
+                const vz = vBase * Math.cos(phi);
 
                 state.bodies.push({
                     id: Date.now() + i,
@@ -689,9 +700,12 @@
                     mass: b.mass,
                     unit: 'Solar',
                     color: b.color,
-                    trail: []
+                    trail: [],
+                    maxTrail: 6000 // 3체 모드에서만 궤적 길이를 10배(6000개)로 설정
                 });
             });
+
+            setBarycenterToOrigin();
 
             state.zoom = 0.25; 
             setPlayState(false);
@@ -766,7 +780,8 @@
             state.bodies.forEach(b => {
                 if (state.showTrajectory) {
                     b.trail.push({ x: b.x, y: b.y, z: b.z });
-                    if (b.trail.length > 600) {
+                    const limit = b.maxTrail || 600; // 개별 객체의 maxTrail 설정값 적용
+                    if (b.trail.length > limit) {
                         b.trail.shift();
                     }
                 } else {
@@ -1304,9 +1319,7 @@
                 const b = item.body;
                 const proj = item.proj;
 
-                let relativeMass = b.mass;
-                let size = Math.max(3, Math.log10(relativeMass * 1e6 + 1) * 2.0 * proj.scaleFactor);
-                if (size > 18) size = 18;
+                let size = 4 * proj.scaleFactor;
 
                 ctx.fillStyle = b.color;
                 ctx.beginPath();
