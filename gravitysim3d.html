@@ -576,8 +576,7 @@
                 mass: mass, 
                 unit: unit, 
                 color: COLOR_PALETTE[colorIndex % COLOR_PALETTE.length],
-                trail: [],
-                maxTrail: 600
+                trail: []
             };
 
             state.bodies.push(defaultObject);
@@ -611,8 +610,7 @@
                         mass: p.massVal,
                         unit: p.unit,
                         color: p.color,
-                        trail: [],
-                        maxTrail: 600
+                        trail: []
                     });
                 } else {
                     const r_peri = p.a * (1 - p.e);
@@ -631,8 +629,7 @@
                         mass: p.unit === 'Solar' ? p.massVal : p.massVal * EARTH_TO_SOLAR,
                         unit: p.unit,
                         color: p.color,
-                        trail: [],
-                        maxTrail: 600
+                        trail: []
                     });
                 }
             });
@@ -652,7 +649,6 @@
             let totalMass = 0;
             let bodiesData = [];
 
-            // 거리를 5.0 AU 이상으로 설정 (5.0 ~ 8.0 AU 범위)
             const radii = [
                 5.0 + Math.random() * 1.0, 
                 6.2 + Math.random() * 1.0, 
@@ -700,8 +696,7 @@
                     mass: b.mass,
                     unit: 'Solar',
                     color: b.color,
-                    trail: [],
-                    maxTrail: 6000 // 3체 모드에서만 궤적 길이를 10배(6000개)로 설정
+                    trail: []
                 });
             });
 
@@ -780,7 +775,20 @@
             state.bodies.forEach(b => {
                 if (state.showTrajectory) {
                     b.trail.push({ x: b.x, y: b.y, z: b.z });
-                    const limit = b.maxTrail || 600; // 개별 객체의 maxTrail 설정값 적용
+                    
+                    // 현재 속도 산출 (AU/Y -> km/s)
+                    const speedKms = Math.sqrt(b.vx * b.vx + b.vy * b.vy + b.vz * b.vz) * AU_Y_TO_KM_S;
+                    
+                    // 속도 조건별 자취 길이(limit) 설정
+                    let limit = 3000; // 기본값 (10km/s 초과 시 3,000개)
+                    if (speedKms <= 5.0) {
+                        limit = 30000;
+                    } else if (speedKms <= 7.5) {
+                        limit = 15000;
+                    } else if (speedKms <= 10.0) {
+                        limit = 8000;
+                    }
+
                     if (b.trail.length > limit) {
                         b.trail.shift();
                     }
