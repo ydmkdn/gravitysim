@@ -213,7 +213,7 @@
 
             <!-- Footer: System status & instructions -->
             <div class="p-2.5 bg-[#13151a] border-t border-[#22252e] text-center hidden lg:block">
-                <p class="text-[11px] text-slate-400 font-medium">Drag mouse to rotate view, scroll wheel to zoom.</p>
+                <p class="text-[11px] text-slate-400 font-medium">Drag mouse to rotate view, scroll wheel or pinch to zoom.</p>
             </div>
         </aside>
 
@@ -412,6 +412,10 @@
         let lastMouseX = 0;
         let lastMouseY = 0;
 
+        // Pinch-to-zoom tracking variables
+        let initialPinchDistance = null;
+        let initialZoom = state.zoom;
+
         let checkpointState = {
             simTime: 0,
             bodies: []
@@ -481,28 +485,54 @@
             isDragging = false;
         });
 
-        // Touch Drag handling for Mobile 3D Camera Rotation
+        // Touch Drag & Pinch-to-Zoom handling for Mobile
         canvas.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
+                // Single touch: 3D Camera Rotation
                 isDragging = true;
                 lastMouseX = e.touches[0].clientX;
                 lastMouseY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                // Two fingers: Pinch-to-zoom
+                isDragging = false;
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                initialPinchDistance = Math.hypot(dx, dy);
+                initialZoom = state.zoom;
             }
         }, { passive: true });
 
         window.addEventListener('touchmove', (e) => {
-            if (!isDragging || e.touches.length !== 1) return;
-            const dx = e.touches[0].clientX - lastMouseX;
-            const dy = e.touches[0].clientY - lastMouseY;
-            lastMouseX = e.touches[0].clientX;
-            lastMouseY = e.touches[0].clientY;
+            if (e.touches.length === 1 && isDragging) {
+                // Single touch drag
+                const dx = e.touches[0].clientX - lastMouseX;
+                const dy = e.touches[0].clientY - lastMouseY;
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
 
-            cameraAngleY -= dx * 0.005; 
-            cameraAngleX -= dy * 0.005; 
+                cameraAngleY -= dx * 0.005; 
+                cameraAngleX -= dy * 0.005; 
+            } else if (e.touches.length === 2 && initialPinchDistance !== null) {
+                // Two fingers pinch zoom
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const currentDistance = Math.hypot(dx, dy);
+
+                if (initialPinchDistance > 0) {
+                    const scaleFactor = currentDistance / initialPinchDistance;
+                    const newZoom = initialZoom * scaleFactor;
+                    state.zoom = Math.min(Math.max(newZoom, 0.01), 20.0);
+                }
+            }
         }, { passive: true });
 
-        window.addEventListener('touchend', () => {
-            isDragging = false;
+        window.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) {
+                initialPinchDistance = null;
+            }
+            if (e.touches.length === 0) {
+                isDragging = false;
+            }
         });
 
         // Mouse Wheel Zoom Support
